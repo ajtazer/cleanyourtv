@@ -4,8 +4,12 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
-    <!-- The only permission: Open-Meteo, for the place search, the weather and the air quality. -->
+    <!-- Open-Meteo, for the place search, the weather and the air quality. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only for "Use this TV's location": the TV's network (Wi-Fi) position, once. Fine, because a coarse-only
+         app gets a position blurred to about 2 km. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
         android:allowBackup="false"
@@ -14,6 +18,14 @@
         android:label="@string/app_name"
         android:supportsRtl="false"
         android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
+
+        <!-- The weather and AQI line under the launcher's date (its header_weather key). Read-only; it holds only
+             what Home shows anyway: the place name and the reading. -->
+        <meta-data android:name="com.gathin.tvhome.glance" android:value="io.github.sumyabazar1.weather.glance" />
+        <provider
+            android:name=".GlanceProvider"
+            android:authorities="io.github.sumyabazar1.weather.glance"
+            android:exported="true" />
 
         <activity
             android:name=".WeatherActivity"

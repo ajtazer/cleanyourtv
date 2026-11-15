@@ -46,10 +46,24 @@ Saved choices override these defaults. With no saved choices the page is as abov
 | Permission | Why |
 |---|---|
 | `INTERNET` | Open-Meteo: the place search, the weather and the air quality. |
+| `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION` | Only for **Use this TV's location** in the "Which city?" dialog: the TV's network (Wi-Fi) position, read once and kept as the place. Fine, because a coarse-only app gets a position blurred to about 2 km. Asked for when you press it; nothing reads the location otherwise. |
 
-That is all. What is sent: the city name you type in the search, then that place's latitude and longitude. No
-account, no telemetry, no ads, no background service, no location permission. The chosen city stays in the
-app's own storage (backups are off).
+What is sent: the city name you type in the search (or, with **Use this TV's location**, the position to the
+TV's own geocoder for the place's name), then that place's latitude and longitude to Open-Meteo. No account, no
+telemetry, no ads, no background service. The chosen place stays in the app's own storage (backups are off).
+
+The line under the launcher's date is served by a read-only provider (`io.github.sumyabazar1.weather.glance`),
+exported without a permission so the launcher can read it; it holds only what Home shows anyway, the place name
+and the reading.
+
+## On Home, under the date
+
+With `"header_weather": "io.github.sumyabazar1.weather"` in a theme's `config.json`, the launcher shows the place,
+the temperature, the sky and the US AQI in a coloured pill on a line under the date, while the launcher itself
+stays offline. `GlanceProvider` answers its query and fetches a small reading only when the last one is older than
+30 minutes (5 after a failure), never in the background; a reading older than three hours is not shown, and
+nothing appears until a place is chosen. To set the place once from ADB with Location on in the TV's settings:
+`am start -n io.github.sumyabazar1.weather/.WeatherActivity --ez use_tv_location true`.
 
 ## Build and install
 

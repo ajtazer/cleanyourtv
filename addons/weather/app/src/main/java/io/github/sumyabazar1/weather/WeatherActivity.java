@@ -1,9 +1,17 @@
 package io.github.sumyabazar1.weather;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.drawable.GradientDrawable;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -25,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 /**
  * The weather for one place, full screen: now, the air quality and the next days (options.xml). It reads Open-Meteo only
@@ -33,6 +42,7 @@ import java.util.concurrent.Executors;
  */
 public final class WeatherActivity extends Activity {
     private static final String PREFS = "place";
+    private static final int LOCATION_REQUEST = 1;
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -70,7 +80,11 @@ public final class WeatherActivity extends Activity {
         changeCity.setOnClickListener(v -> pickCity());
         findViewById(R.id.weatherSettings).setOnClickListener(v -> settings());
         changeCity.requestFocus();
-        if (!place.contains("name")) {
+        if (getIntent().getBooleanExtra("use_tv_location", false)) {
+            // Set the place once from ADB: am start -n <pkg>/.WeatherActivity --ez use_tv_location true
+            message.setText(R.string.locating);
+            useTvLocation();
+        } else if (!place.contains("name")) {
             message.setText(R.string.pick_first);
             pickCity();
         }
@@ -300,6 +314,7 @@ public final class WeatherActivity extends Activity {
                 .setTitle(R.string.pick_title)
                 .setView(box)
                 .setPositiveButton(R.string.pick_search, (d, w) -> search(name.getText().toString()))
+                .setNeutralButton(R.string.use_tv_location, (d, w) -> useTvLocation())
                 .create();
         name.setOnEditorActionListener((v, action, event) -> {
             if (action != EditorInfo.IME_ACTION_SEARCH) return false;
@@ -350,18 +365,98 @@ public final class WeatherActivity extends Activity {
                 .setTitle(R.string.pick_title)
                 .setItems(rows, (d, which) -> {
                     Forecast.Place p = places.get(which);
-                    place.edit()
-                            .putString("name", p.name)
-                            .putLong("lat", Double.doubleToRawLongBits(p.latitude))
-                            .putLong("lon", Double.doubleToRawLongBits(p.longitude))
-                            .apply();
-                    lastReport = null;
-                    shown = false;
-                    content.setVisibility(View.INVISIBLE);
-                    message.setVisibility(View.VISIBLE);
-                    message.setText(R.string.loading);
-                    refresh();
+                    savePlace(p.name, p.latitude, p.longitude);
                 })
                 .show();
+    }
+
+    /** Keeps a place (searched, or this TV's own position) and loads its weather; the launcher's line follows. */
+    private void savePlace(String name, double latitude, double longitude) {
+        place.edit()
+                .putString("name", name)
+                .putLong("lat", Double.doubleToRawLongBits(latitude))
+                .putLong("lon", Double.doubleToRawLongBits(longitude))
+                .apply();
+        lastReport = null;
+        shown = false;
+        content.setVisibility(View.INVISIBLE);
+        message.setVisibility(View.VISIBLE);
+        message.setText(R.string.loading);
+        refresh();
+        getContentResolver().notifyChange(GlanceProvider.NOW, null);
+    }
+
+    /**
+     * This TV's network (Wi-Fi) position, once, in place of a searched city; the name is the geocoder's locality.
+     * Needs Location on in the TV's settings: a TV has no GPS, so with it off there is nothing to read.
+     */
+    @SuppressLint("MissingPermission")   // checked at the top
+    private void useTvLocation() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_REQUEST);
+            return;
+        }
+        LocationManager lm = getSystemService(LocationManager.class);
+        if (lm == null || !lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+            locationFailed();
+            return;
+        }
+        Toast.makeText(this, R.string.locating, Toast.LENGTH_SHORT).show();
+        int search = ++searchId;
+        Consumer<Location> got = fix -> {
+            Location loc = fix != null ? fix : lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            if (isDestroyed() || search != searchId) return;
+            if (loc == null) {
+                locationFailed();
+                return;
+            }
+            double lat = loc.getLatitude();
+            double lon = loc.getLongitude();
+            io.execute(() -> {
+                String name = localityName(lat, lon);
+                main.post(() -> {
+                    if (!isDestroyed() && search == searchId) savePlace(name, lat, lon);
+                });
+            });
+        };
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            lm.getCurrentLocation(LocationManager.NETWORK_PROVIDER, null, getMainExecutor(), got);
+        } else {
+            got.accept(null);
+        }
+    }
+
+    /** The neighbourhood, else the town, from the geocoder; "Home" when it has neither or is not there. */
+    private String localityName(double lat, double lon) {
+        try {
+            if (Geocoder.isPresent()) {
+                List<Address> found = new Geocoder(this, Locale.getDefault()).getFromLocation(lat, lon, 1);
+                if (found != null && !found.isEmpty()) {
+                    Address a = found.get(0);
+                    if (a.getSubLocality() != null && !a.getSubLocality().isEmpty()) return a.getSubLocality();
+                    if (a.getLocality() != null && !a.getLocality().isEmpty()) return a.getLocality();
+                }
+            }
+        } catch (Exception offline) {
+            // No name; the position is what the weather needs.
+        }
+        return getString(R.string.location_home);
+    }
+
+    private void locationFailed() {
+        Toast.makeText(this, R.string.location_failed, Toast.LENGTH_LONG).show();
+        if (!place.contains("name")) pickCity();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != LOCATION_REQUEST) return;
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            useTvLocation();
+        } else {
+            locationFailed();
+        }
     }
 }

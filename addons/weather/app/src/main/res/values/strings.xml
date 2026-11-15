@@ -37,6 +37,10 @@
     <string name="pick_search">Search</string>
     <string name="pick_none">No place called \"%1$s\"</string>
     <string name="pick_first">Choose a city to see its weather.</string>
+    <string name="use_tv_location">Use this TV\'s location</string>
+    <string name="locating">Finding this TV\'s location…</string>
+    <string name="location_failed">This TV couldn\'t find its location. Turn on Location in Settings › Device Preferences, or search for a city.</string>
+    <string name="location_home">Home</string>
 
     <string name="aqi_good">Good</string>
     <string name="aqi_moderate">Moderate</string>
