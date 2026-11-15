@@ -283,6 +283,24 @@
                             android:letterSpacing="0.14"
                             android:textAllCaps="true" />
 
+                        <!-- header_weather: the place, the temperature, the sky and the AQI pill, served by an add-on
+                             (HeaderWeather). Capitals come from the text itself, so the pill's colour spans survive. -->
+                        <TextView
+                            android:id="@+id/weatherLine"
+                            android:gravity="left"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:textColor="#A6FFFFFF"
+                            android:textSize="14sp"
+                            android:fontFamily="@string/font_regular"
+                            android:letterSpacing="0.14"
+                            android:includeFontPadding="false"
+                            android:focusable="false"
+                            android:visibility="gone" />
+
                         <!-- Lunar date ("Lunar 13/9 · Year of the Horse"), shown when lunar_date is on. -->
                         <TextView
                             android:id="@+id/lunarDate"

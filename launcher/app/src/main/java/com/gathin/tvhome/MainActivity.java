@@ -202,6 +202,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView raceKicker, raceHeadline, raceSessions;
     /** game_day: each team's next game from an add-on, rotating in the race panel; null when the key is off. */
     private GameDay gameDay;
+    /** header_weather: the weather and AQI line under the date (null when off), and when it was last asked for. */
+    private HeaderWeather headerWeather;
+    private TextView weatherLine;
+    private long lastWeatherRead;
     private View raceBar;
     private LinearLayout racePager;
     private long rotationStart;
@@ -441,6 +445,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void run() {
             updateGreeting();
             updatePanel();
+            // The weather line changes without anything telling Home: ask the add-on every 10 minutes while Home is
+            // up, and it decides whether that needs a fetch (at most every 30).
+            if (headerWeather != null && SystemClock.elapsedRealtime() - lastWeatherRead > 10 * MINUTE_MS) {
+                lastWeatherRead = SystemClock.elapsedRealtime();
+                headerWeather.read();
+            }
             // The pill follows the network callbacks and each return to Home; only the festive light follows the
             // signal level, so only it needs this minute's binder calls (about 7 ms on the UI thread).
             if (festive) updateWifiLabel();
@@ -550,7 +560,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!cfg.showGreeting) greeting.setVisibility(View.GONE);
         // Keep the other header layouts as designed: their extra lines change the block's centre.
         if (!cfg.showGreeting && !cfg.dateBelowClock && !cfg.shamsiDate && !cfg.lunarDate
-                && !cfg.topMenu && !getResources().getBoolean(R.bool.rtl_menu_bar)) {
+                && cfg.headerWeather.isEmpty() && !cfg.topMenu && !getResources().getBoolean(R.bool.rtl_menu_bar)) {
             centerCompactHeader();
         }
         if (cfg.headerWhite) {
@@ -585,6 +595,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         raceBar = findViewById(R.id.raceBar);
         racePager = findViewById(R.id.racePager);
         gameDay = GameDay.create(this, cfg.gameDay, handler, this::updatePanel);
+        weatherLine = findViewById(R.id.weatherLine);
+        headerWeather = HeaderWeather.create(this, cfg.headerWeather, handler, this::updateWeatherLine);
         // The rotation runs on the clock that never jumps: setting the TV's time must not stall or stretch a turn.
         rotationStart = SystemClock.elapsedRealtime();
         showStats = cfg.showStats;
@@ -1138,6 +1150,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (showStats) startStats();
         if (gameDay != null) gameDay.start();
+        if (headerWeather != null) {
+            lastWeatherRead = SystemClock.elapsedRealtime();
+            headerWeather.start();
+        }
         sky.update();
         wallpaperPlayer.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
@@ -1323,6 +1339,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         startPending = null;   // leaving Home before the network came back: the boot's app stays closed
         stopStats();
         if (gameDay != null) gameDay.stop();
+        if (headerWeather != null) headerWeather.stop();
         handler.removeCallbacks(turnTick);
         if (lamp != null) lamp.stop();
         cancelPendingFocusScroll();
@@ -1391,6 +1408,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         RemoteKeys.release(this);
         cancelHoldOk();
         if (gameDay != null) gameDay.shutdown();
+        if (headerWeather != null) headerWeather.shutdown();
         unregisterReceiver(packageReceiver);
         if (openOnStartOnWake) unregisterReceiver(wakeReceiver);
         wallpaperPlayer.close();
@@ -2785,6 +2803,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (shamsi) shamsiDate.setText(Shamsi.today(getResources()));
         if (lunar) lunarDate.setText(Lunar.today(getResources(), lunarOffset));
+    }
+
+    /** header_weather: the add-on's latest reading under the date, or no line at all without one. */
+    private void updateWeatherLine() {
+        HeaderWeather.Glance g = headerWeather == null ? null : headerWeather.glance();
+        if (g == null) {
+            weatherLine.setVisibility(View.GONE);
+            return;
+        }
+        weatherLine.setText(HeaderWeather.format(g));
+        weatherLine.setVisibility(View.VISIBLE);
     }
 
     // ---- race-weekend panel (a theme's race_calendar) -----------------------------------------------
