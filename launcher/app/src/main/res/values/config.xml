@@ -488,6 +488,21 @@
          (the Weather add-on: io.github.sumyabazar1.weather, its GlanceProvider). Empty = off: nothing is read or
          watched. The launcher only reads and never goes online. A theme can set "header_weather". -->
     <string name="header_weather" translatable="false"></string>
+    <!-- The clock screensaver's layout: "drift" (clock, date and weather in one block that moves every minute, kind
+         to OLED panels) or "corners" (dream_clock_corners: a big bold time, date and day centred, fixed corners). -->
+    <string name="clock_layout" translatable="false">drift</string>
+    <!-- What the corners screensaver adds: "forecast" (the Weather add-on's next 3 days, top-right), "festival"
+         (the next Indian festival from Google's public holidays calendar), "cricket" (live internationals between
+         the 12 Test nations, from ESPNcricinfo's RSS) and "news" (headlines from clock_news_feed). The live ones
+         are fetched only while the screensaver is up. -->
+    <string-array name="clock_extras" translatable="false" />
+    <!-- Rain, snow, fog, clouds or stars over the corners screensaver, from the Weather add-on's weather now. -->
+    <bool name="clock_sky_effect">false</bool>
+    <!-- The RSS feed behind clock_extras "news". -->
+    <string name="clock_news_feed" translatable="false">https://news.google.com/rss?hl=en-IN&amp;gl=IN&amp;ceid=IN:en</string>
+    <!-- clock_extras "festival": "public" holidays only, or "all" to add observances (Raksha Bandhan, Ganesh
+         Chaturthi and the like, minor days too). -->
+    <string name="clock_festival_types" translatable="false">public</string>
 
     <!-- Time-of-day backdrop behind everything: a dark gradient that follows the clock, with a warm
          horizon glow around sunrise and sunset. 0 keeps the plain background (the default); 1 to 100

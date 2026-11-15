@@ -24,13 +24,15 @@ public class ClockActivity extends Activity {
     @SuppressWarnings("deprecation")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.dream_clock);
-        ClockFormat.apply(getWindow().getDecorView(), Config.load(this).clockFormat);
+        Config cfg = Config.load(this);
+        setContentView("corners".equals(cfg.clockLayout) ? R.layout.dream_clock_corners : R.layout.dream_clock);
+        ClockFormat.apply(getWindow().getDecorView(), cfg.clockFormat);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE);
         scene = new ClockScene(getWindow().getDecorView());
         scene.useHomeWallpaper(this);
         scene.useWeather(this);
+        scene.useExtras(this);
     }
 
     @Override

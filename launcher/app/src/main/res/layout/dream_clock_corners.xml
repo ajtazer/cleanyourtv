@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Corners screensaver (clock_layout "corners"): a big bold time with the date and day in the centre, and fixed
+     corners that ClockScene fills: place, weather and AQI top-left; the 3-day forecast top-right; cricket and the
+     next festival bottom-left; a headline bottom-right. Nothing drifts: this layout is for LCD panels. Corners sit
+     5% in (48dp x 28dp on a 960x540dp TV), and an item with nothing to say is gone. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000">
+
+    <ImageView
+        android:id="@+id/dreamAmbient"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:importantForAccessibility="no" />
+
+    <com.gathin.tvhome.SkyEffectView
+        android:id="@+id/dreamSky"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="170dp"
+        android:layout_gravity="top"
+        android:background="@drawable/scrim_top" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="190dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/scrim_bottom" />
+
+    <LinearLayout
+        android:id="@+id/dreamContent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="true">
+
+            <TextClock
+                android:id="@+id/dreamTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:format12Hour="h:mm"
+                android:format24Hour="HH:mm"
+                android:textColor="#FFFFFFFF"
+                android:textSize="150sp"
+                android:fontFamily="@string/font_bold"
+                android:letterSpacing="-0.03"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false" />
+
+            <TextClock
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:format12Hour="a"
+                android:format24Hour=""
+                android:textColor="#B3FFFFFF"
+                android:textSize="26sp"
+                android:fontFamily="@string/font_medium"
+                android:letterSpacing="0.08"
+                android:textAllCaps="true" />
+        </LinearLayout>
+
+        <TextClock
+            android:id="@+id/dreamDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:format12Hour="d MMMM"
+            android:format24Hour="d MMMM"
+            android:textColor="#E6FFFFFF"
+            android:textSize="24sp"
+            android:fontFamily="@string/font_regular"
+            android:letterSpacing="0.18"
+            android:textAllCaps="true" />
+
+        <TextClock
+            android:id="@+id/dreamDay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:format12Hour="EEEE"
+            android:format24Hour="EEEE"
+            android:textColor="#99FFFFFF"
+            android:textSize="16sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.24"
+            android:textAllCaps="true" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="48dp"
+        android:layout_marginTop="28dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/dreamPlace"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:textColor="#B3FFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.18"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/dreamNow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:singleLine="true"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:fontFamily="@string/font_regular"
+            android:letterSpacing="0.06"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/dreamAqi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:singleLine="true"
+            android:textSize="14sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.08"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/dreamForecast"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginEnd="48dp"
+        android:layout_marginTop="28dp"
+        android:gravity="end"
+        android:orientation="vertical"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="48dp"
+        android:layout_marginBottom="28dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/dreamCricket"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableStart="@drawable/dot_live"
+            android:drawablePadding="10dp"
+            android:singleLine="true"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.04"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/dreamFestival"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:maxWidth="420dp"
+            android:textColor="#B3FFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.16"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="384dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="48dp"
+        android:layout_marginBottom="28dp"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/dreamNews"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            android:textColor="#F2FFFFFF"
+            android:textSize="15sp"
+            android:fontFamily="@string/font_regular"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/dreamNewsSource"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:singleLine="true"
+            android:textColor="#99FFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.16"
+            android:visibility="gone" />
+    </LinearLayout>
+</FrameLayout>

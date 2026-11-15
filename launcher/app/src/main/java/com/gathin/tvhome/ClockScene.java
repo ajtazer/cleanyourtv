@@ -10,21 +10,30 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * The clock screensaver's scene (layout dream_clock): the thin clock and date on black over a slow ambient
@@ -70,15 +79,32 @@ final class ClockScene {
     private String weatherPkg = "";
     private HeaderWeather headerWeather;
     private int weatherTicks;
+    /** clock_layout "corners" (layout dream_clock_corners): fixed corners instead of a drifting block. */
+    private final boolean corners;
+    private final TextView place, now, aqi, cricketView, festivalView, newsView, newsSource;
+    private final LinearLayout forecastBox;
+    private final SkyEffectView sky;
+    /** clock_extras, clock_sky_effect, clock_news_feed and clock_festival_types, read by useExtras(). */
+    private boolean showForecast, showFestival, showCricket, showNews, skyEffect, allFestivals;
+    private String newsFeed = "";
+    private ExecutorService feedsIo;
+    private int cricketIndex, newsIndex;
 
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
-            moveClock();
+            if (!corners) moveClock();
             shiftGlow();
             advanceWallpaper();
             // A screensaver can stay up for hours: ask the add-on every 10 minutes, as Home does.
             if (headerWeather != null && ++weatherTicks % 10 == 0) headerWeather.read();
+            if (corners) {
+                showFestival();
+                cricketIndex++;
+                newsIndex++;
+                showFeeds(true);
+                refreshFeeds();
+            }
             handler.postDelayed(this, MOVE_MS);
         }
     };
@@ -89,6 +115,16 @@ final class ClockScene {
         clockRefresh = new ClockRefresh(content);
         ambient = root.findViewById(R.id.dreamAmbient);
         weather = root.findViewById(R.id.dreamWeather);
+        place = root.findViewById(R.id.dreamPlace);
+        now = root.findViewById(R.id.dreamNow);
+        aqi = root.findViewById(R.id.dreamAqi);
+        forecastBox = root.findViewById(R.id.dreamForecast);
+        cricketView = root.findViewById(R.id.dreamCricket);
+        festivalView = root.findViewById(R.id.dreamFestival);
+        newsView = root.findViewById(R.id.dreamNews);
+        newsSource = root.findViewById(R.id.dreamNewsSource);
+        sky = root.findViewById(R.id.dreamSky);
+        corners = place != null;
         glow = new GradientDrawable();
         glow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
         ambient.setBackground(glow);
@@ -101,7 +137,7 @@ final class ClockScene {
     void start() {
         content.setAlpha(0f);
         content.post(() -> {
-            placeClock();
+            if (!corners) placeClock();
             content.animate().alpha(1f).setDuration(1200).start();
         });
         handler.removeCallbacks(tick);
@@ -112,6 +148,15 @@ final class ClockScene {
             headerWeather = HeaderWeather.create(weatherCtx, weatherPkg, handler, this::showWeather);
             if (headerWeather != null) headerWeather.start();
         }
+        if (corners) {
+            showFestival();
+            showFeeds(false);
+            if (sky != null && skyEffect) sky.start();
+            if ((showCricket || showNews || showFestival) && feedsIo == null) {
+                feedsIo = Executors.newSingleThreadExecutor();
+                refreshFeeds();
+            }
+        }
     }
 
     void stop() {
@@ -120,6 +165,11 @@ final class ClockScene {
             headerWeather.shutdown();   // its thread goes with it: Home opens this scene again on every idle
             headerWeather = null;
         }
+        if (feedsIo != null) {
+            feedsIo.shutdownNow();
+            feedsIo = null;
+        }
+        if (sky != null) sky.stop();
         clockRefresh.stop();
         content.animate().cancel();
         wallpaperGeneration++;   // a decode still running must not attach its picture to a stopped scene
@@ -255,8 +305,156 @@ final class ClockScene {
         }
     }
 
+    /** clock_extras and its companions, for the corners layout. Call before start(). */
+    void useExtras(Context ctx) {
+        try {
+            Config cfg = Config.load(ctx);
+            showForecast = cfg.clockExtras.contains("forecast");
+            showFestival = cfg.clockExtras.contains("festival");
+            showCricket = cfg.clockExtras.contains("cricket");
+            showNews = cfg.clockExtras.contains("news");
+            skyEffect = cfg.clockSkyEffect;
+            newsFeed = cfg.clockNewsFeed;
+            allFestivals = "all".equals(cfg.clockFestivalTypes);
+        } catch (RuntimeException e) {
+            // nothing extra
+        }
+    }
+
+    /** Top-left: place, the weather now and the AQI pill; top-right: the forecast; and the sky effect for now. */
+    private void showCorners(HeaderWeather.Glance g) {
+        Locale locale = Locale.getDefault();
+        boolean has = g != null;
+        place.setText(has ? g.city.toUpperCase(locale) : "");
+        place.setVisibility(has && !g.city.isEmpty() ? View.VISIBLE : View.GONE);
+        now.setText(has ? (g.temp + "° " + g.sky).trim().toUpperCase(locale) : "");
+        now.setVisibility(has ? View.VISIBLE : View.GONE);
+        if (has && g.aqi >= 0) {
+            aqi.setText("AQI " + g.aqi);
+            aqi.setTextColor(g.aqiTextColour);
+            GradientDrawable pill = new GradientDrawable();
+            pill.setColor(g.aqiColour);
+            pill.setCornerRadius(4 * aqi.getResources().getDisplayMetrics().density);
+            aqi.setBackground(pill);
+            aqi.setVisibility(View.VISIBLE);
+        } else {
+            aqi.setVisibility(View.GONE);
+        }
+        forecastBox.removeAllViews();
+        List<String[]> days = has && showForecast ? HeaderWeather.forecastDays(g.forecast)
+                : Collections.<String[]>emptyList();
+        for (String[] d : days) forecastBox.addView(forecastRow(d));
+        forecastBox.setVisibility(days.isEmpty() ? View.GONE : View.VISIBLE);
+        if (sky != null && skyEffect) {
+            sky.setMode(has && g.code >= 0 ? SkyEffectView.modeFor(g.code, g.day) : SkyEffectView.NONE);
+        }
+    }
+
+    /** One forecast row: "MON", its weather icon, the high, and the low dimmer. */
+    private View forecastRow(String[] d) {
+        Context ctx = forecastBox.getContext();
+        float dp = ctx.getResources().getDisplayMetrics().density;
+        Typeface medium = ctx.getResources().getFont(R.font.outfit_medium);
+        Typeface regular = ctx.getResources().getFont(R.font.outfit_regular);
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        row.setPadding(0, (int) (2 * dp), 0, (int) (2 * dp));
+        row.addView(label(ctx, d[0], 13, 0xB3FFFFFF, medium, 0.18f));
+        ImageView icon = new ImageView(ctx);
+        icon.setImageResource(iconFor(Integer.parseInt(d[1])));
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams((int) (20 * dp), (int) (20 * dp));
+        ip.setMarginStart((int) (12 * dp));
+        ip.setMarginEnd((int) (10 * dp));
+        row.addView(icon, ip);
+        TextView hi = label(ctx, d[2] + "°", 18, 0xFFFFFFFF, regular, 0.04f);
+        hi.setMinEms(2);
+        hi.setGravity(Gravity.END);
+        row.addView(hi);
+        TextView lo = label(ctx, d[3] + "°", 18, 0x99FFFFFF, regular, 0.04f);
+        lo.setMinEms(2);
+        lo.setGravity(Gravity.END);
+        row.addView(lo);
+        return row;
+    }
+
+    private static TextView label(Context ctx, String text, int sp, int colour, Typeface tf, float spacing) {
+        TextView t = new TextView(ctx);
+        t.setText(text);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        t.setTextColor(colour);
+        t.setTypeface(tf);
+        t.setLetterSpacing(spacing);
+        t.setSingleLine(true);
+        return t;
+    }
+
+    /** A forecast day's icon from its WMO code. */
+    private static int iconFor(int code) {
+        if (code >= 95) return R.drawable.ic_wx_storm;
+        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return R.drawable.ic_wx_snow;
+        if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return R.drawable.ic_wx_rain;
+        if (code == 45 || code == 48) return R.drawable.ic_wx_fog;
+        if (code == 3) return R.drawable.ic_wx_cloud;
+        if (code == 1 || code == 2) return R.drawable.ic_wx_partly;
+        return R.drawable.ic_wx_sun;
+    }
+
+    /** Bottom-left, second line: the next festival from Google's India holidays calendar. */
+    private void showFestival() {
+        if (festivalView == null) return;
+        LocalDate today = LocalDate.now();
+        LiveFeeds.Event e = showFestival ? LiveFeeds.nextFestival(LiveFeeds.festivals, today, allFestivals) : null;
+        festivalView.setText(e == null ? "" : LiveFeeds.festivalText(e, today));
+        festivalView.setVisibility(e == null ? View.GONE : View.VISIBLE);
+    }
+
+    /** Bottom-left: a live score; bottom-right: a headline and its source. Several take turns, a minute each. */
+    private void showFeeds(boolean fade) {
+        if (cricketView != null) {
+            List<String> scores = showCricket ? LiveFeeds.cricket : Collections.<String>emptyList();
+            cricketView.setText(scores.isEmpty() ? "" : scores.get(cricketIndex % scores.size()));
+            cricketView.setVisibility(scores.isEmpty() ? View.GONE : View.VISIBLE);
+        }
+        if (newsView == null) return;
+        List<String[]> news = showNews ? LiveFeeds.headlines : Collections.<String[]>emptyList();
+        if (news.isEmpty()) {
+            newsView.setVisibility(View.GONE);
+            newsSource.setVisibility(View.GONE);
+            return;
+        }
+        String[] h = news.get(newsIndex % news.size());
+        Runnable put = () -> {
+            newsView.setText(h[0]);
+            newsSource.setText(h[1].toUpperCase(Locale.getDefault()));
+            newsView.setVisibility(View.VISIBLE);
+            newsSource.setVisibility(h[1].isEmpty() ? View.GONE : View.VISIBLE);
+        };
+        View box = (View) newsView.getParent();
+        if (!fade || newsView.getVisibility() != View.VISIBLE) {
+            put.run();
+            return;
+        }
+        box.animate().alpha(0f).setDuration(400).withEndAction(() -> {
+            put.run();
+            box.animate().alpha(1f).setDuration(600).start();
+        }).start();
+    }
+
+    private void refreshFeeds() {
+        if (feedsIo == null) return;
+        LiveFeeds.refresh(feedsIo, handler, showCricket, showNews ? newsFeed : "", showFestival, () -> {
+            showFestival();
+            showFeeds(false);
+        });
+    }
+
     private void showWeather() {
         HeaderWeather.Glance g = headerWeather == null ? null : headerWeather.glance();
+        if (corners) {
+            showCorners(g);
+            return;
+        }
         int was = weather.getVisibility();
         if (g == null) {
             weather.setVisibility(View.GONE);

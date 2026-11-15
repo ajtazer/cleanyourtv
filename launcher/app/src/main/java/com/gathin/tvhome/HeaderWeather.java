@@ -37,15 +37,43 @@ final class HeaderWeather {
         final int aqi;
         final int aqiColour;
         final int aqiTextColour;
+        /** The WMO weather code now (-1 when not sent) and day or night: the screensaver's icon and sky effect. */
+        final int code;
+        final boolean day;
+        /** The next days as "MON|0|27|15;TUE|3|26|14", or "": the corners screensaver's forecast. */
+        final String forecast;
 
-        Glance(String city, int temp, String sky, int aqi, int aqiColour, int aqiTextColour) {
+        Glance(String city, int temp, String sky, int aqi, int aqiColour, int aqiTextColour, int code, boolean day,
+               String forecast) {
             this.city = city == null ? "" : city;
             this.temp = temp;
             this.sky = sky == null ? "" : sky;
             this.aqi = aqi;
             this.aqiColour = aqiColour;
             this.aqiTextColour = aqiTextColour;
+            this.code = code;
+            this.day = day;
+            this.forecast = forecast == null ? "" : forecast;
         }
+    }
+
+    /** The add-on's "MON|0|27|15;TUE|3|26|14" as {day, code, high, low} rows; a malformed row is skipped. */
+    static java.util.List<String[]> forecastDays(String forecast) {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        if (forecast == null || forecast.isEmpty()) return out;
+        for (String row : forecast.split(";")) {
+            String[] f = row.split("\\|");
+            if (f.length != 4 || f[0].trim().isEmpty()) continue;
+            try {
+                Integer.parseInt(f[1].trim());
+                Integer.parseInt(f[2].trim());
+                Integer.parseInt(f[3].trim());
+                out.add(new String[] {f[0].trim(), f[1].trim(), f[2].trim(), f[3].trim()});
+            } catch (NumberFormatException skip) {
+                // not a forecast row
+            }
+        }
+        return out;
     }
 
     private final Context ctx;
@@ -128,7 +156,9 @@ final class HeaderWeather {
                         if (temp >= 0 && !c.isNull(temp)) {
                             g = new Glance(str(c, c.getColumnIndex("city")), c.getInt(temp), str(c, c.getColumnIndex("sky")),
                                     num(c, c.getColumnIndex("aqi"), -1), num(c, c.getColumnIndex("aqi_colour"), 0),
-                                    num(c, c.getColumnIndex("aqi_text_colour"), 0xFFFFFFFF));
+                                    num(c, c.getColumnIndex("aqi_text_colour"), 0xFFFFFFFF),
+                                    num(c, c.getColumnIndex("code"), -1), num(c, c.getColumnIndex("day"), 1) != 0,
+                                    str(c, c.getColumnIndex("forecast")));
                         }
                     }
                 } catch (RuntimeException gone) {

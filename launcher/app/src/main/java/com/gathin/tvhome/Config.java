@@ -158,6 +158,16 @@ final class Config {
     final String gameDay;
     /** header_weather: the package of an add-on that serves the weather and AQI line under the date (HeaderWeather); empty = off. */
     final String headerWeather;
+    /** clock_layout: "drift" (the clock block that moves every minute) or "corners" (dream_clock_corners). */
+    final String clockLayout;
+    /** clock_extras: what the corners screensaver adds: forecast, festival, cricket, news. */
+    final List<String> clockExtras;
+    /** clock_sky_effect: rain, snow, fog, clouds or stars over the corners screensaver, from the weather now. */
+    final boolean clockSkyEffect;
+    /** clock_news_feed: the RSS feed behind clock_extras "news". */
+    final String clockNewsFeed;
+    /** clock_festival_types: "public" holidays only, or "all" with observances too, for clock_extras "festival". */
+    final String clockFestivalTypes;
     /** App library pill after the last Home row (config.xml app_library). */
     final boolean appLibrary;
     /** OK directly toggles Home membership in the library (app_library_selection). */
@@ -292,7 +302,7 @@ final class Config {
                    String sourcePanelExtra, boolean coocaaSources, String inputAction, List<String> inputSources,
                    String inputUriScheme, int columns, int rowsBelowDock, boolean animations, boolean advancedEffects,
                    boolean shamsiDate, String greetingName, boolean moduleCards, boolean reducedMotion, boolean bootToLiveTv, boolean openOnStartChoice, boolean dockTitle, boolean dockRow, boolean topMenu, boolean launcherSettingsButton, boolean reorderButton, boolean showNetworkPill, boolean showInputsPill, boolean iconOnlyButtons, boolean iconOnlyInputs, boolean libraryButton, boolean showLibraryPill, int wifiLabelWidth, boolean alwaysShowNames, boolean wallpaperTrueColor, boolean focusOvershoot, String vpnApp,
-                   boolean showHomeSettingsShortcut, boolean showStats, String gameDay, String headerWeather, boolean appLibrary, boolean appLibrarySelection, boolean libraryOkOpens, boolean uniformTiles, int backgroundColor, int skyIntensity,
+                   boolean showHomeSettingsShortcut, boolean showStats, String gameDay, String headerWeather, String clockLayout, List<String> clockExtras, boolean clockSkyEffect, String clockNewsFeed, String clockFestivalTypes, boolean appLibrary, boolean appLibrarySelection, boolean libraryOkOpens, boolean uniformTiles, int backgroundColor, int skyIntensity,
                    int[] settingsKeycodes, boolean settingsKeyPanel, boolean restoreKeyServices, boolean wallpaperEnabled, File wallpaper, List<File> wallpapers,
                    int wallpaperRotationMinutes, int wallpaperDim, int dockOpacity, String wallpaperOrder, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys, String stockHomeRedirect,
@@ -365,6 +375,11 @@ final class Config {
         this.showStats = showStats;
         this.gameDay = gameDay;
         this.headerWeather = headerWeather;
+        this.clockLayout = clockLayout;
+        this.clockExtras = Collections.unmodifiableList(clockExtras);
+        this.clockSkyEffect = clockSkyEffect;
+        this.clockNewsFeed = clockNewsFeed;
+        this.clockFestivalTypes = clockFestivalTypes;
         this.appLibrary = appLibrary;
         this.appLibrarySelection = appLibrarySelection;
         this.libraryOkOpens = libraryOkOpens;
@@ -502,6 +517,11 @@ final class Config {
         boolean showStats = res.getBoolean(R.bool.show_stats);
         String gameDay = res.getString(R.string.game_day).trim();
         String headerWeather = res.getString(R.string.header_weather).trim();
+        String clockLayout = res.getString(R.string.clock_layout).trim();
+        List<String> clockExtras = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.clock_extras)));
+        boolean clockSky = res.getBoolean(R.bool.clock_sky_effect);
+        String clockNewsFeed = res.getString(R.string.clock_news_feed).trim();
+        String clockFestivalTypes = res.getString(R.string.clock_festival_types).trim();
         boolean library = res.getBoolean(R.bool.app_library);
         boolean librarySelection = res.getBoolean(R.bool.app_library_selection);
         boolean libraryOkOpens = res.getBoolean(R.bool.library_ok_opens);
@@ -620,6 +640,11 @@ final class Config {
             showStats = bool(json, "show_stats", showStats);
             gameDay = string(json, "game_day", gameDay);
             headerWeather = string(json, "header_weather", headerWeather);
+            clockLayout = string(json, "clock_layout", clockLayout);
+            clockExtras = stringList(json, "clock_extras", clockExtras);
+            clockSky = bool(json, "clock_sky_effect", clockSky);
+            clockNewsFeed = string(json, "clock_news_feed", clockNewsFeed);
+            clockFestivalTypes = string(json, "clock_festival_types", clockFestivalTypes);
             library = bool(json, "app_library", library);
             librarySelection = bool(json, "app_library_selection", librarySelection);
             libraryOkOpens = bool(json, "library_ok_opens", libraryOkOpens);
@@ -727,7 +752,7 @@ final class Config {
                 Math.max(0, rowsBelow), animations, advancedEffects, shamsi, greetingName, moduleCards, reducedMotion, bootToLiveTv,
                 openOnStartChoice, dockTitle, dockRow, topMenu, launcherSettingsButton, reorderButton, showNetworkPill, showInputsPill,
                 iconOnlyButtons, iconOnlyInputs, libraryButton, showLibraryPill, wifiLabelWidth, alwaysShowNames, wallpaperTrueColor, focusOvershoot,
-                vpn, homeSettings, showStats, gameDay, headerWeather, library, librarySelection, libraryOkOpens, uniformTiles, background,
+                vpn, homeSettings, showStats, gameDay, headerWeather, clockLayout, clockExtras, clockSky, clockNewsFeed, clockFestivalTypes, library, librarySelection, libraryOkOpens, uniformTiles, background,
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, restoreKeyServices, wallpaperEnabled, wallpaper,
                 wallpapers, rotationMinutes, wallpaperDim, dockOpacity, wallpaperOrder, applied, festival, inputKeycodes, appKeys, stockHomeRedirect,
                 json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow, appGlow, fadeRows,
