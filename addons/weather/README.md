@@ -62,7 +62,10 @@ With `"header_weather": "io.github.sumyabazar1.weather"` in a theme's `config.js
 the temperature, the sky and the US AQI in a coloured pill on a line under the date, while the launcher itself
 stays offline. `GlanceProvider` answers its query and fetches a small reading only when the last one is older than
 30 minutes (5 after a failure), never in the background; a reading older than three hours is not shown, and
-nothing appears until a place is chosen. To set the place once from ADB with Location on in the TV's settings:
+nothing appears until a place is chosen. The same row also carries the WMO code now, day or night, and the next
+three days (`forecast`, "MON|0|27|15;…" in the TV's language and the chosen unit), which the launcher's corners
+screensaver shows (`clock_layout`, `clock_extras` `forecast`). To set the place once from ADB with Location on in
+the TV's settings:
 `am start -n io.github.sumyabazar1.weather/.WeatherActivity --ez use_tv_location true`.
 
 ## Build and install
