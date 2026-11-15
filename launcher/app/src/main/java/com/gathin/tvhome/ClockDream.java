@@ -25,6 +25,7 @@ public class ClockDream extends DreamService {
         ClockFormat.apply(getWindow().getDecorView(), Config.load(this).clockFormat);
         scene = new ClockScene(getWindow().getDecorView());
         scene.useHomeWallpaper(this);
+        scene.useWeather(this);
     }
 
     @Override

@@ -15,6 +15,7 @@ import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -63,6 +64,12 @@ final class ClockScene {
     private String order;
     private Map<String, Set<String>> moods;
     private String latitude, longitude;
+    /** header_weather: Home's weather line under the date; a reader lives from start() to stop() only. */
+    private final TextView weather;
+    private Context weatherCtx;
+    private String weatherPkg = "";
+    private HeaderWeather headerWeather;
+    private int weatherTicks;
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -70,6 +77,8 @@ final class ClockScene {
             moveClock();
             shiftGlow();
             advanceWallpaper();
+            // A screensaver can stay up for hours: ask the add-on every 10 minutes, as Home does.
+            if (headerWeather != null && ++weatherTicks % 10 == 0) headerWeather.read();
             handler.postDelayed(this, MOVE_MS);
         }
     };
@@ -79,6 +88,7 @@ final class ClockScene {
         content = root.findViewById(R.id.dreamContent);
         clockRefresh = new ClockRefresh(content);
         ambient = root.findViewById(R.id.dreamAmbient);
+        weather = root.findViewById(R.id.dreamWeather);
         glow = new GradientDrawable();
         glow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
         ambient.setBackground(glow);
@@ -98,10 +108,18 @@ final class ClockScene {
         handler.postDelayed(tick, MOVE_MS);
         clockRefresh.start();
         if (wallpaperFile != null && !wallpaperShown) loadWallpaper();
+        if (weatherCtx != null && headerWeather == null) {
+            headerWeather = HeaderWeather.create(weatherCtx, weatherPkg, handler, this::showWeather);
+            if (headerWeather != null) headerWeather.start();
+        }
     }
 
     void stop() {
         handler.removeCallbacksAndMessages(null);   // the tick and any glow steps still queued
+        if (headerWeather != null) {
+            headerWeather.shutdown();   // its thread goes with it: Home opens this scene again on every idle
+            headerWeather = null;
+        }
         clockRefresh.stop();
         content.animate().cancel();
         wallpaperGeneration++;   // a decode still running must not attach its picture to a stopped scene
@@ -225,6 +243,29 @@ final class ClockScene {
         int[] sun = WallpaperMood.sun(now.toLocalDate(), latitude, longitude, ZoneId.systemDefault());
         return WallpaperMood.select(rotation, moods,
                 WallpaperMood.timeOfDay(now.getHour() * 60 + now.getMinute(), sun[0], sun[1]));
+    }
+
+    /** header_weather: show Home's weather and AQI line under the date as well. Call before start(). */
+    void useWeather(Context ctx) {
+        try {
+            weatherPkg = Config.load(ctx).headerWeather;
+            weatherCtx = ctx;
+        } catch (RuntimeException e) {
+            weatherCtx = null;
+        }
+    }
+
+    private void showWeather() {
+        HeaderWeather.Glance g = headerWeather == null ? null : headerWeather.glance();
+        int was = weather.getVisibility();
+        if (g == null) {
+            weather.setVisibility(View.GONE);
+        } else {
+            weather.setText(HeaderWeather.format(g));
+            weather.setVisibility(View.VISIBLE);
+        }
+        // The block just grew or shrank: place it again so the new line stays on screen.
+        if (was != weather.getVisibility()) content.post(this::placeClock);
     }
 
     private void moveClock() {
