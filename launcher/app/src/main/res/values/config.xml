@@ -492,8 +492,8 @@
          to OLED panels) or "corners" (dream_clock_corners: a big bold time, date and day centred, fixed corners). -->
     <string name="clock_layout" translatable="false">drift</string>
     <!-- What the corners screensaver adds: "forecast" (the Weather add-on's next 3 days, top-right), "festival"
-         (the next Indian festival from Google's public holidays calendar), "cricket" (live internationals between
-         the 12 Test nations, from ESPNcricinfo's RSS) and "news" (headlines from clock_news_feed). The live ones
+         (the next Indian festival from Google's public holidays calendar), "cricket" (ongoing matches between
+         the 12 Test nations, from ESPN's public scoreboard, with a red dot only while play is on) and "news" (headlines from clock_news_feed). The live ones
          are fetched only while the screensaver is up. -->
     <string-array name="clock_extras" translatable="false" />
     <!-- Rain, snow, fog, clouds or stars over the corners screensaver, from the Weather add-on's weather now. -->

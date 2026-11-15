@@ -81,7 +81,7 @@ final class ClockScene {
     private int weatherTicks;
     /** clock_layout "corners" (layout dream_clock_corners): fixed corners instead of a drifting block. */
     private final boolean corners;
-    private final TextView place, now, aqi, cricketView, festivalView, newsView, newsSource;
+    private final TextView place, now, aqi, cricketView, cricketTitle, cricketStatus, festivalView, newsView, newsSource;
     private final LinearLayout forecastBox;
     private final SkyEffectView sky;
     /** clock_extras, clock_sky_effect, clock_news_feed and clock_festival_types, read by useExtras(). */
@@ -120,6 +120,8 @@ final class ClockScene {
         aqi = root.findViewById(R.id.dreamAqi);
         forecastBox = root.findViewById(R.id.dreamForecast);
         cricketView = root.findViewById(R.id.dreamCricket);
+        cricketTitle = root.findViewById(R.id.dreamCricketTitle);
+        cricketStatus = root.findViewById(R.id.dreamCricketStatus);
         festivalView = root.findViewById(R.id.dreamFestival);
         newsView = root.findViewById(R.id.dreamNews);
         newsSource = root.findViewById(R.id.dreamNewsSource);
@@ -412,9 +414,19 @@ final class ClockScene {
     /** Bottom-left: a live score; bottom-right: a headline and its source. Several take turns, a minute each. */
     private void showFeeds(boolean fade) {
         if (cricketView != null) {
-            List<String> scores = showCricket ? LiveFeeds.cricket : Collections.<String>emptyList();
-            cricketView.setText(scores.isEmpty() ? "" : scores.get(cricketIndex % scores.size()));
-            cricketView.setVisibility(scores.isEmpty() ? View.GONE : View.VISIBLE);
+            List<LiveFeeds.Match> on = showCricket ? LiveFeeds.matches : Collections.<LiveFeeds.Match>emptyList();
+            LiveFeeds.Match m = on.isEmpty() ? null : on.get(cricketIndex % on.size());
+            int shown = m == null ? View.GONE : View.VISIBLE;
+            cricketView.setText(m == null ? "" : LiveFeeds.scoreLine(m));
+            // The red dot means play is on right now, not just that the match is under way (stumps, tea...).
+            cricketView.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    m != null && LiveFeeds.isLive(m) ? R.drawable.dot_live : 0, 0, 0, 0);
+            cricketView.setVisibility(shown);
+            cricketTitle.setText(m == null ? "" : LiveFeeds.titleLine(m));
+            cricketTitle.setVisibility(shown);
+            String status = m == null ? "" : LiveFeeds.statusLine(m);
+            cricketStatus.setText(status);
+            cricketStatus.setVisibility(status.isEmpty() ? View.GONE : shown);
         }
         if (newsView == null) return;
         List<String[]> news = showNews ? LiveFeeds.headlines : Collections.<String[]>emptyList();

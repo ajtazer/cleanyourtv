@@ -166,24 +166,56 @@
         android:layout_marginBottom="28dp"
         android:orientation="vertical">
 
+        <!-- The match: "2ND TEST · AFGHANISTAN V ZIMBABWE". -->
+        <TextView
+            android:id="@+id/dreamCricketTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="3dp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:maxWidth="520dp"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.16"
+            android:visibility="gone" />
+
+        <!-- The score; ClockScene puts the red dot before it only while play is on. -->
         <TextView
             android:id="@+id/dreamCricket"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:drawableStart="@drawable/dot_live"
             android:drawablePadding="10dp"
             android:singleLine="true"
+            android:ellipsize="end"
+            android:maxWidth="520dp"
             android:textColor="#FFFFFFFF"
             android:textSize="18sp"
             android:fontFamily="@string/font_medium"
             android:letterSpacing="0.04"
             android:visibility="gone" />
 
+        <!-- "STUMPS · DAY 3 · ZIMBABWE LEAD BY 291 RUNS". -->
+        <TextView
+            android:id="@+id/dreamCricketStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:maxWidth="520dp"
+            android:textColor="#99FFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="0.12"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/dreamFestival"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="12dp"
             android:singleLine="true"
             android:ellipsize="end"
             android:maxWidth="420dp"

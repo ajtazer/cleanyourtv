@@ -4,6 +4,9 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Xml;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.xmlpull.v1.XmlPullParser;
 
 import java.io.BufferedReader;
@@ -27,8 +30,8 @@ import java.util.concurrent.RejectedExecutionException;
  * clock_extras' live lines on the corners screensaver, fetched by the launcher (this fork has INTERNET) only while
  * the screensaver is up, and kept for the process so the next one shows them at once:
  * <ul>
- * <li>cricket from ESPNcricinfo's keyless live-scores RSS, every 3 minutes: live internationals between the
- * 12 Test nations, India first;</li>
+ * <li>cricket from ESPN's public scoreboard JSON (no key), every 3 minutes: ongoing matches between the 12 Test
+ * nations, India first, with the match's name, its real state (play on, or stumps, lunch, tea...) and summary;</li>
  * <li>headlines from an RSS feed (clock_news_feed, Google News India by default), every 15 minutes;</li>
  * <li>the next festival from Google's public "Holidays in India" calendar (iCal), once a day: no dates are
  * written in this code.</li>
@@ -36,7 +39,7 @@ import java.util.concurrent.RejectedExecutionException;
  * The parsing is plain Java (LiveFeedsTest); only {@link #refresh} touches the network.
  */
 final class LiveFeeds {
-    static final String CRICKET_URL = "https://static.cricinfo.com/rss/livescores.xml";
+    static final String CRICKET_URL = "https://site.api.espn.com/apis/site/v2/sports/cricket/scorepanel";
     static final String FESTIVALS_URL =
             "https://calendar.google.com/calendar/ical/en.indian%23holiday%40group.v.calendar.google.com/public/basic.ics";
     private static final long CRICKET_MS = 3 * 60_000L;
@@ -45,11 +48,35 @@ final class LiveFeeds {
     private static final long RETRY_MS = 60_000L;
     private static final int MAX_EVENTS = 200;
 
-    /** The 12 Test nations as the feed names them, and the short code shown. */
-    private static final String[][] NATIONS = {
-            {"India", "IND"}, {"Australia", "AUS"}, {"England", "ENG"}, {"Pakistan", "PAK"},
-            {"South Africa", "SA"}, {"New Zealand", "NZ"}, {"Sri Lanka", "SL"}, {"Bangladesh", "BAN"},
-            {"Afghanistan", "AFG"}, {"West Indies", "WI"}, {"Ireland", "IRE"}, {"Zimbabwe", "ZIM"}};
+    /** The 12 Test nations as ESPN names them; a women's side is the same name plus " Women". */
+    private static final List<String> NATIONS = java.util.Arrays.asList("India", "Australia", "England", "Pakistan",
+            "South Africa", "New Zealand", "Sri Lanka", "Bangladesh", "Afghanistan", "West Indies", "Ireland", "Zimbabwe");
+    /** ESPN's status words for an ongoing match with no play just now: no live dot for these. */
+    private static final String[] PAUSES = {"stumps", "lunch", "tea", "drinks", "break", "rain", "delay", "interrupt",
+            "bad light", "stopped", "suspend", "abandon"};
+
+    /** One match from ESPN's scoreboard: names, state ("pre", "in", "post"), status words and the two sides. */
+    static final class Match {
+        final String name;
+        final String description;
+        final String state;
+        final String status;
+        final String session;
+        final String summary;
+        /** {display name, abbreviation, score} for each side, in ESPN's order. */
+        final String[][] sides;
+
+        Match(String name, String description, String state, String status, String session, String summary,
+              String[][] sides) {
+            this.name = name;
+            this.description = description;
+            this.state = state;
+            this.status = status;
+            this.session = session;
+            this.summary = summary;
+            this.sides = sides;
+        }
+    }
 
     /** One calendar day: its date, its name, and whether Google marks it a public holiday. */
     static final class Event {
@@ -64,7 +91,7 @@ final class LiveFeeds {
         }
     }
 
-    static volatile List<String> cricket = Collections.emptyList();
+    static volatile List<Match> matches = Collections.emptyList();
     static volatile List<String[]> headlines = Collections.emptyList();
     static volatile List<Event> festivals = Collections.emptyList();
     private static volatile long cricketAt, newsAt, festivalsAt, cricketTried, newsTried, festivalsTried;
@@ -88,7 +115,7 @@ final class LiveFeeds {
                 boolean changed = false;
                 if (c) {
                     try {
-                        cricket = cricketLines(rssTitles(CRICKET_URL));
+                        matches = ongoing(espnMatches(readAll(CRICKET_URL)));
                         cricketAt = SystemClock.elapsedRealtime();
                         changed = true;
                     } catch (Exception offline) {
@@ -159,36 +186,93 @@ final class LiveFeeds {
         return out;
     }
 
-    /** "Australia 220/10 * v England 355/6" as "AUS 220/10* v ENG 355/6", Test nations only, India first. */
-    static List<String> cricketLines(List<String> titles) {
-        List<String> india = new ArrayList<>();
-        List<String> rest = new ArrayList<>();
-        for (String raw : titles) {
-            String t = raw.replace("&amp;", "&").trim();
-            int v = t.indexOf(" v ");
-            if (v < 0) continue;
-            String a = side(t.substring(0, v));
-            String b = side(t.substring(v + 3));
-            if (a == null || b == null) continue;
-            (a.startsWith("IND") || b.startsWith("IND") ? india : rest).add(a + " v " + b);
+    private static String readAll(String url) throws IOException {
+        StringBuilder out = new StringBuilder();
+        try (BufferedReader in = open(url)) {
+            char[] buf = new char[8192];
+            for (int n; (n = in.read(buf)) > 0; ) out.append(buf, 0, n);
+        }
+        return out.toString();
+    }
+
+    /** Every two-sided match on ESPN's cricket scoreboard JSON (scores[].events[]). */
+    static List<Match> espnMatches(String json) throws JSONException {
+        List<Match> out = new ArrayList<>();
+        JSONArray scores = new JSONObject(json).optJSONArray("scores");
+        for (int b = 0; scores != null && b < scores.length(); b++) {
+            JSONArray events = scores.getJSONObject(b).optJSONArray("events");
+            for (int i = 0; events != null && i < events.length(); i++) {
+                JSONObject e = events.getJSONObject(i);
+                JSONObject status = e.optJSONObject("status");
+                JSONObject type = status == null ? null : status.optJSONObject("type");
+                JSONArray comps = e.optJSONArray("competitions");
+                if (type == null || comps == null || comps.length() == 0) continue;
+                JSONObject c = comps.getJSONObject(0);
+                JSONArray sides = c.optJSONArray("competitors");
+                if (sides == null || sides.length() != 2) continue;
+                String[][] s = new String[2][];
+                for (int k = 0; k < 2; k++) {
+                    JSONObject side = sides.getJSONObject(k);
+                    JSONObject team = side.optJSONObject("team");
+                    s[k] = new String[] {team == null ? "" : team.optString("displayName"),
+                            team == null ? "" : team.optString("abbreviation"), side.optString("score")};
+                }
+                out.add(new Match(e.optString("name"), c.optString("description"), type.optString("state"),
+                        type.optString("description"), status.optString("session"), status.optString("summary"), s));
+            }
+        }
+        return out;
+    }
+
+    /** Ongoing matches (live, or paused at stumps, lunch...) between the 12 Test nations, India first. */
+    static List<Match> ongoing(List<Match> all) {
+        List<Match> india = new ArrayList<>();
+        List<Match> rest = new ArrayList<>();
+        for (Match m : all) {
+            if (!"in".equals(m.state) || !nation(m.sides[0][0]) || !nation(m.sides[1][0])) continue;
+            boolean ind = m.sides[0][0].startsWith("India") || m.sides[1][0].startsWith("India");
+            (ind ? india : rest).add(m);
         }
         india.addAll(rest);
         return india;
     }
 
-    /** "India Women 245/3 *" as "IND W 245/3*"; null for a side that is not one of the 12 Test nations. */
-    static String side(String s) {
-        s = s.trim();
-        int i = 0;
-        while (i < s.length() && !Character.isDigit(s.charAt(i)) && s.charAt(i) != '*') i++;
-        String team = s.substring(0, i).trim();
-        String score = s.substring(i).trim().replaceAll("\\s+", " ").replace(" *", "*");
-        boolean women = team.endsWith(" Women");
-        if (women) team = team.substring(0, team.length() - " Women".length()).trim();
-        for (String[] n : NATIONS) {
-            if (n[0].equals(team)) return n[1] + (women ? " W" : "") + (score.isEmpty() ? "" : " " + score);
-        }
-        return null;
+    private static boolean nation(String name) {
+        String n = name.endsWith(" Women") ? name.substring(0, name.length() - " Women".length()) : name;
+        return NATIONS.contains(n.trim());
+    }
+
+    /** Play is on right now: ongoing and not at stumps, lunch, tea, a break or a delay. Drives the red dot. */
+    static boolean isLive(Match m) {
+        if (!"in".equals(m.state)) return false;
+        String s = m.status.toLowerCase(Locale.ROOT);
+        for (String p : PAUSES) if (s.contains(p)) return false;
+        return true;
+    }
+
+    /** "2ND TEST · AFGHANISTAN V ZIMBABWE": which match this is. */
+    static String titleLine(Match m) {
+        String t = m.description.isEmpty() ? m.name : m.description + " · " + m.name;
+        return t.toUpperCase(Locale.ROOT);
+    }
+
+    /** "AFG 217 v ZIM 339 & 169/7 (58 ov)": both sides, in ESPN's order. */
+    static String scoreLine(Match m) {
+        return side(m.sides[0]) + " v " + side(m.sides[1]);
+    }
+
+    private static String side(String[] s) {
+        String code = s[1].isEmpty() ? s[0] : s[1];
+        return s[2].isEmpty() ? code : code + " " + s[2];
+    }
+
+    /** "STUMPS · DAY 3 · ZIMBABWE LEAD BY 291 RUNS"; the pause word only when play is not on. */
+    static String statusLine(Match m) {
+        List<String> parts = new ArrayList<>();
+        if (!isLive(m) && !m.status.isEmpty()) parts.add(m.status);
+        if (!m.session.isEmpty()) parts.add(m.session);
+        if (!m.summary.isEmpty()) parts.add(m.summary);
+        return String.join(" · ", parts).toUpperCase(Locale.ROOT);
     }
 
     /** "Headline - Source" as {headline, source}; a title with no source keeps an empty one. */

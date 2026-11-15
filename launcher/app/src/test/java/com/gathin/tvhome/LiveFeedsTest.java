@@ -14,23 +14,45 @@ import java.util.List;
 import org.junit.Test;
 
 public class LiveFeedsTest {
-    /** Titles as ESPNcricinfo's live-scores RSS printed them on 15 Nov 2026, plus two India lines. */
-    @Test public void cricketKeepsTestNationsOnlyIndiaFirst() {
-        List<String> lines = LiveFeeds.cricketLines(Arrays.asList(
-                "Zimbabwe A 329/10 &amp;  214/3 * v Ireland A 551/10 ",
-                "Afghanistan 217/10  v Zimbabwe 339/10 &amp;  169/7 *",
-                "Hong Kong Cricket Club 293/7  v United Services Recreation Club 285/9 *",
-                "Australia 220/10 * v England 355/6 ",
-                "Pakistan Women 126/7  v Netherlands Women 127/2 *",
-                "South Africa v Bangladesh 319/5 *",
-                "India Women 100/2 * v England Women 150/5",
-                "India 245/3 * v Australia 301/8"));
-        assertEquals(Arrays.asList(
-                "IND W 100/2* v ENG W 150/5",
-                "IND 245/3* v AUS 301/8",
-                "AFG 217/10 v ZIM 339/10 & 169/7*",
-                "AUS 220/10* v ENG 355/6",
-                "SA v BAN 319/5*"), lines);
+    private static LiveFeeds.Match match(String name, String desc, String state, String status, String session,
+                                         String summary, String a, String aCode, String aScore, String b,
+                                         String bCode, String bScore) {
+        return new LiveFeeds.Match(name, desc, state, status, session, summary,
+                new String[][] {{a, aCode, aScore}, {b, bCode, bScore}});
+    }
+
+    /** Afghanistan v Zimbabwe is ESPN's scoreboard on 15 Nov 2026 (2nd Test, stumps on day 3). */
+    private static final LiveFeeds.Match AFG_ZIM = match("Afghanistan v Zimbabwe", "2nd Test", "in", "Stumps",
+            "Day 3", "Zimbabwe lead by 291 runs", "Afghanistan", "AFG", "217", "Zimbabwe", "ZIM",
+            "339 & 169/7 (58 ov)");
+
+    @Test public void ongoingKeepsTestNationsOnlyIndiaFirst() {
+        LiveFeeds.Match indWomen = match("India Women v England Women", "1st ODI", "in", "Live", "", "",
+                "India Women", "IND-W", "100/2 (20 ov)", "England Women", "ENG-W", "");
+        List<LiveFeeds.Match> on = LiveFeeds.ongoing(Arrays.asList(
+                match("Zimbabwe A v Ireland A", "2nd unofficial Test", "in", "Live", "", "", "Zimbabwe A", "ZIM-A",
+                        "329 & 214/3", "Ireland A", "IRE-A", "551"),
+                match("Emirates Eagles v UAE Bulls", "20th Match", "in", "Live", "", "", "Emirates Eagles", "EME",
+                        "123/4", "UAE Bulls", "UB", "100/5"),
+                AFG_ZIM,
+                match("Australia v England", "1st Test", "post", "Final", "", "", "Australia", "AUS", "220",
+                        "England", "ENG", "355/6"),
+                indWomen));
+        assertEquals(2, on.size());
+        assertEquals(indWomen, on.get(0));   // India first, then the rest in ESPN's order
+        assertEquals(AFG_ZIM, on.get(1));    // A sides, leagues and finished matches are left out
+    }
+
+    @Test public void stumpsIsOngoingButNotLive() {
+        assertFalse(LiveFeeds.isLive(AFG_ZIM));
+        assertEquals("2ND TEST · AFGHANISTAN V ZIMBABWE", LiveFeeds.titleLine(AFG_ZIM));
+        assertEquals("AFG 217 v ZIM 339 & 169/7 (58 ov)", LiveFeeds.scoreLine(AFG_ZIM));
+        assertEquals("STUMPS · DAY 3 · ZIMBABWE LEAD BY 291 RUNS", LiveFeeds.statusLine(AFG_ZIM));
+
+        LiveFeeds.Match playing = match("India v Australia", "3rd T20I", "in", "Live", "", "India need 42 from 18 balls",
+                "India", "IND", "160/4 (17 ov)", "Australia", "AUS", "201/6");
+        assertTrue(LiveFeeds.isLive(playing));
+        assertEquals("INDIA NEED 42 FROM 18 BALLS", LiveFeeds.statusLine(playing));
     }
 
     @Test public void headlinesSplitTheSource() {
