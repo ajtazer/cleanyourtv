@@ -1,3 +1,14 @@
+## This fork (`rawat-home`)
+
+Weather and AQI under the date (`header_weather`, read from the Weather add-on), and a corners clock screensaver
+(`clock_layout: corners`) with a 3-day forecast, live Test cricket, the next festival, a news headline and a sky effect
+that follows the weather. Unlike upstream, this launcher has `INTERNET`, used only while the clock is on screen. The
+theme keys are in [themes/README.md](themes/README.md).
+
+<img src="docs/fork/screensaver.jpg" width="49%" alt="The corners clock screensaver"> <img src="docs/fork/home.jpg" width="49%" alt="Home with the weather and AQI line under the date">
+
+---
+
 <p align="center">
   <a href="https://cleanyour.tv"><img src="https://raw.githubusercontent.com/Gathin23/cleanyourtv/main/docs/banner.png" alt="CleanYourTV. Your TV, minus the ads. Strip the bloatware from any Android TV or Google TV over Wi-Fi and replace the ad-filled home screen with a clean launcher that looks like an Apple TV. No root, no cable, nothing uninstalled, and a one-line restore." width="800"></a>
 </p>
